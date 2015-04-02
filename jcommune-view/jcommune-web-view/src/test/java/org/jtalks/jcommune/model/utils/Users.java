@@ -30,11 +30,14 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import static junit.framework.Assert.fail;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 
 /**
@@ -56,9 +59,14 @@ public class Users {
     private SessionAuthenticationStrategy sessionStrategy;
     @Autowired
     private EncryptionService encryptionService;
+    private MockMvc mockMvc;
 
-    public static String USERNAME = "user";
-    public static String PASSWORD = "pwd";
+    // Default values
+    public static final String USERNAME = "user";
+    public static final String PASSWORD = "pwd";
+    public static final String EMAIL = "sample@example.com";
+    public static final String CONFIRMATION = PASSWORD;
+    public static final String HONEYPOT = "";
 
     public PermissionGranter create() {
         Group group = groupDao.getGroupByName(AdministrationGroup.USER.getName());
@@ -83,7 +91,7 @@ public class Users {
         securityFacade.getContext().setAuthentication(auth);
         HttpServletRequest request = new MockHttpServletRequest();
         HttpServletResponse response =  new MockHttpServletResponse();
-        sessionStrategy.onAuthentication(auth, request , response);
+        sessionStrategy.onAuthentication(auth, request, response);
     }
 
     public HttpSession performLogin(MockMvc mockMvc) throws Exception{
@@ -92,5 +100,81 @@ public class Users {
                 .andReturn().getRequest().getSession();
     }
 
+    public ResultActions registerDefault() throws  Exception {
+        return register(USERNAME, EMAIL, PASSWORD, CONFIRMATION);
+    }
 
+    public ResultActions registerAndActivate() throws Exception {
+        registerDefault();
+        JCUser registered = userDao.getByUsername(USERNAME);
+        return mockMvc.perform(get("/user/activate/" + registered.getUuid()));
+    }
+
+    public ResultActions registerWithUsername(String username) throws Exception {
+        return register(username, EMAIL, PASSWORD, CONFIRMATION);
+    }
+
+    public ResultActions registerWithEmail(String email) throws Exception {
+        return register(USERNAME, email, PASSWORD, CONFIRMATION);
+    }
+
+    public ResultActions registerWithPasswordAndConfirmation(String password, String confirmation) throws Exception {
+        return register(USERNAME, EMAIL, password, confirmation);
+    }
+
+    public ResultActions registerWithHoneypot(String honeypot) throws Exception {
+        return register(USERNAME, EMAIL, PASSWORD, CONFIRMATION, honeypot);
+    }
+
+    public ResultActions register(String username, String email, String password, String confirmation)
+            throws Exception {
+        return register(username, email, password, confirmation, HONEYPOT);
+    }
+
+    protected ResultActions register(String username, String email, String password, String confirmation,
+                                     String honeypot) throws Exception {
+        return  mockMvc.perform(post("/user/new")
+                .param("userDto.username", username)
+                .param("userDto.email", email)
+                .param("userDto.password", password)
+                .param("passwordConfirm", confirmation)
+                .param("honeypotCaptcha", honeypot));
+    }
+
+    public void assertDefaultUserExist() {
+        assertUserExist(USERNAME);
+    }
+
+    public void assertDefaultUserNotExist() {
+        assertUserNotExist(USERNAME);
+    }
+
+    public void assertDefaultUserActivated() {
+        assertUserActivated(USERNAME);
+    }
+
+    public void assertUserActivated(String username) {
+        JCUser user = userDao.getByUsername(username);
+        if (!user.isEnabled()) {
+            fail("User with name [" + username + "] not activated");
+        }
+    }
+
+    public void assertUserExist(String username) {
+        JCUser user = userDao.getByUsername(username);
+        if (user == null) {
+            fail("User with name [" + username + "] not exist in database");
+        }
+    }
+
+    public void assertUserNotExist(String username) {
+        JCUser user = userDao.getByUsername(username);
+        if (user != null) {
+            fail("User with name [" + username + "] exist in database");
+        }
+    }
+
+    public void setMockMvc(MockMvc mockMvc) {
+        this.mockMvc = mockMvc;
+    }
 }
