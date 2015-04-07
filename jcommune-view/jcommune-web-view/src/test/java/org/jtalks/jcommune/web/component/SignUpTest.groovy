@@ -16,7 +16,6 @@ package org.jtalks.jcommune.web.component
 
 import org.jtalks.jcommune.model.utils.Groups
 import org.jtalks.jcommune.model.utils.Users
-import org.jtalks.jcommune.web.controller.UserController
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.context.transaction.TransactionConfiguration
@@ -30,12 +29,7 @@ import javax.annotation.Resource
 import javax.servlet.Filter
 
 import static org.apache.commons.lang.RandomStringUtils.randomAlphabetic
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.model
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.view
-
-import static org.apache.commons.lang.RandomStringUtils.randomAlphanumeric;
+import static org.apache.commons.lang.RandomStringUtils.randomAlphanumeric
 
 /**
  * @author Mikhail Stryzhonok
@@ -74,31 +68,25 @@ class SignUpTest extends Specification {
 
     def 'test sign up success'() {
         when: 'User send registration request'
-            def result = users.registerDefault()
-        then: 'After registration page is shown'
-            result.andExpect(status().isOk()).andExpect(view().name(UserController.AFTER_REGISTRATION))
-        and: 'User created in database'
-            users.assertDefaultUserExist()
+            def userName = users.signUp().shouldPass()
+        then: 'User created in database'
+            users.assertUserExist(userName)
     }
 
     def 'test sign up and activation'() {
         when: 'User send registration request and goes to activation link'
-            def result = users.registerAndActivate()
-        then: 'User redirected to main page'
-            result.andExpect(status().isMovedTemporarily()).andExpect(redirectedUrl("/"))
-        and: 'User created in database'
-            users.assertDefaultUserExist()
+            def username = users.signUpAndActivate().shouldPass();
+        then: 'User created in database'
+            users.assertUserExist(username)
         and: 'User activated'
-            users.assertDefaultUserActivated()
+            users.assertUserActivated(username)
     }
 
     def 'registration should fail if honeypot captcha are filled'() {
         when: 'Bot send registration request'
-            def result = users.registerWithHoneypot(honeypot)
-        then: 'Bot redirected back to registration page with error'
-            result.andExpect(status().isMovedTemporarily()).andExpect(redirectedUrl("/user/new?reg_error=3"))
-        and: 'User not ctreated in database'
-            users.assertDefaultUserNotExist()
+            def username = users.signUpWithHoneypot(honeypot).shouldFail()
+        then: 'User not ctreated in database'
+            users.assertUserNotExist(username)
         where:
             honeypot    |casename
             "any text"  |"All fields filled"
@@ -106,14 +94,11 @@ class SignUpTest extends Specification {
 
     def 'registration should fail if all fields are empty'() {
         when: 'User send registration request'
-            def result = users.register(username, email, password, confirmation)
-        then: 'Registration page is shown'
-            result.andExpect(status().isOk()).andExpect(view().name(UserController.REGISTRATION))
-        and: 'All fields marked with error'
-            result.andExpect(model().attributeHasFieldErrors("newUser", "userDto.username", "userDto.email",
-                    "userDto.password"))
-        and: 'User not created in database'
-            users.assertUserNotExist(username)
+            def name = users.signUp(username, email, password, confirmation)
+                    .shouldFailWithAttributeFieldErrors("newUser", "userDto.username", "userDto.email",
+                    "userDto.password");
+        then: 'User not created in database'
+            users.assertUserNotExist(name)
         where:
             username   |email  |password   |confirmation    |caseName
             ""         |""     |""         |""              |"All field are empty"
@@ -121,13 +106,9 @@ class SignUpTest extends Specification {
 
     def 'registration with invalid username should fail'() {
         when: 'User send registration request with invalid username'
-            def result = users.registerWithUsername(username)
-        then: 'Registration page is shown'
-            result.andExpect(status().isOk()).andExpect(view().name(UserController.REGISTRATION))
-        and: 'Username field marked with error'
-            result.andExpect(model().attributeHasFieldErrors("newUser", "userDto.username"))
-        and: 'User not created in database'
-            users.assertUserNotExist(username)
+            def name = users.signUpWithUsername(username).shouldFail()
+        then: 'User not created in database'
+            users.assertUserNotExist(name)
         where:
             username               |caseName
             "   "                  |"Username as spaces"
@@ -137,11 +118,9 @@ class SignUpTest extends Specification {
 
     def 'registration user with valid username should pass'() {
         when: 'User send registration request with valid username'
-            def result = users.registerWithUsername(username)
-        then: 'After registration page is shown'
-            result.andExpect(status().isOk()).andExpect(view().name(UserController.AFTER_REGISTRATION))
-        and: 'User created in database'
-            users.assertUserExist(username)
+            def name = users.signUpWithUsername(username).shouldPass()
+        then: 'User created in database'
+            users.assertUserExist(name)
         where:
             username                                                    |caseName
             randomAlphanumeric(14)                                      |"Length of username between 1 and 25"
@@ -154,13 +133,9 @@ class SignUpTest extends Specification {
 
     def 'registration with invalid email should fail'() {
         when: 'User send registration request with invalid email'
-            def result = users.registerWithEmail(email)
-        then: 'Registration page is shown'
-            result.andExpect(status().isOk()).andExpect(view().name(UserController.REGISTRATION))
-        and: 'Email field marked with error'
-            result.andExpect(model().attributeHasFieldErrors("newUser", "userDto.email"))
-        and: 'User not created in database'
-            users.assertDefaultUserNotExist()
+            def username = users.signUpWithEmail(email).shouldFailWithAttributeFieldErrors("newUser", "userDto.email");
+        then: 'User not created in database'
+            users.assertUserNotExist(username)
         where:
             email                                   |caseName
             randomAlphanumeric(8) + "@" + "jtalks"  |"Invalid email format"
@@ -169,11 +144,9 @@ class SignUpTest extends Specification {
 
     def 'registration with valid password and confirmation should pass'() {
         when: 'User send registration request with valid password and confirmation'
-            def result = users.registerWithPasswordAndConfirmation(password, password)
-        then: 'After registration page is shown'
-            result.andExpect(status().isOk()).andExpect(view().name(UserController.AFTER_REGISTRATION))
-        and: 'User created in database'
-            users.assertDefaultUserExist()
+            def username = users.signUpWithPasswordAndConfirmation(password, password).shouldPass()
+        then: 'User created in database'
+            users.assertUserExist(username)
         where:
             password                |caseName
             randomAlphanumeric(49)  |"Valid password"
@@ -182,13 +155,10 @@ class SignUpTest extends Specification {
 
     def 'registration with invalid password should fail'() {
         when: 'User send registration request with invalid password'
-            def result = users.registerWithPasswordAndConfirmation(password, password)
-        then: 'Registration page is shown'
-            result.andExpect(status().isOk()).andExpect(view().name(UserController.REGISTRATION))
-        and: 'Password field marked with error'
-            result.andExpect(model().attributeHasFieldErrors("newUser", "userDto.password"))
-        and: 'User not created in database'
-            users.assertDefaultUserNotExist()
+            def username = users.signUpWithPasswordAndConfirmation(password, password)
+                    .shouldFailWithAttributeFieldErrors("newUser", "userDto.password")
+        then: 'User not created in database'
+            users.assertUserNotExist(username)
         where:
             password                |caseName
             ""                      |"Password is empty"
@@ -198,13 +168,10 @@ class SignUpTest extends Specification {
 
     def 'registration with different password and confirmation should fail'() {
         when: 'User send registration request with different password and confirmation'
-            def result = users.registerWithPasswordAndConfirmation(password, confirmation)
-        then: 'Registration page is shown'
-            result.andExpect(status().isOk()).andExpect(view().name(UserController.REGISTRATION))
-        and: 'Password confirmation field marked with error'
-            result.andExpect(model().attributeHasFieldErrors("newUser", "passwordConfirm"))
-        and: 'User not created in database'
-            users.assertDefaultUserNotExist()
+            def username = users.signUpWithPasswordAndConfirmation(password, confirmation)
+                    .shouldFailWithAttributeFieldErrors("newUser", "passwordConfirm");
+        then: 'User not created in database'
+            users.assertUserNotExist(username)
         where:
             password               |confirmation    | caseName
             randomAlphanumeric(10) |""              | "Confirmation is empty"
@@ -215,24 +182,20 @@ class SignUpTest extends Specification {
 
     def 'registration with not unique usename should fail'() {
         given: 'User with default username registered'
-            users.registerDefault();
-        when: 'Other user tries to register with same username and different email'
-            def result = users.registerWithEmail("mail@mail.ru")
-        then: 'Registration page is shown'
-            result.andExpect(status().isOk()).andExpect(view().name(UserController.REGISTRATION))
-        and: 'Username field marked with error'
-            result.andExpect(model().attributeHasFieldErrors("newUser", "userDto.username"))
+            users.signUp();
+        when: 'Other user tries to signUp with same username and different email'
+            def assertor = users.signUpWithEmail("mail@mail.ru")
+        then: 'Username field marked with error'
+            assertor.shouldFailWithAttributeFieldErrors("newUser", "userDto.username")
     }
 
     def 'registration with not unique email should fail'() {
         given: 'User with default email registered'
-            users.registerDefault();
-        when: 'Other user tries to register with same email and different username'
-            def result = users.registerWithUsername("super user")
-        then: 'Registration page is shown'
-            result.andExpect(status().isOk()).andExpect(view().name(UserController.REGISTRATION))
-        and: 'Email field marked with error'
-            result.andExpect(model().attributeHasFieldErrors("newUser", "userDto.email"))
+            users.signUp();
+        when: 'Other user tries to signUp with same email and different username'
+            def assertor = users.signUpWithUsername("super user")
+        then: 'Email field marked with error'
+            assertor.shouldFailWithAttributeFieldErrors("newUser", "userDto.email")
     }
 
 }

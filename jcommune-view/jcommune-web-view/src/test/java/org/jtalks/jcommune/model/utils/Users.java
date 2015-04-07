@@ -19,9 +19,12 @@ import org.jtalks.common.service.security.SecurityContextHolderFacade;
 import org.jtalks.jcommune.model.dao.GroupDao;
 import org.jtalks.jcommune.model.dao.UserDao;
 import org.jtalks.jcommune.model.entity.JCUser;
+import org.jtalks.jcommune.model.utils.assertion.ModelAndViewResultAssertor;
+import org.jtalks.jcommune.model.utils.assertion.ResultAssertor;
 import org.jtalks.jcommune.service.nontransactional.EncryptionService;
 import org.jtalks.jcommune.service.security.AdministrationGroup;
 import org.jtalks.jcommune.service.security.PermissionManager;
+import org.jtalks.jcommune.web.controller.UserController;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -39,6 +42,7 @@ import javax.servlet.http.HttpSession;
 import static junit.framework.Assert.fail;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * @author Mikhail Stryzhonok
@@ -100,57 +104,54 @@ public class Users {
                 .andReturn().getRequest().getSession();
     }
 
-    public ResultActions registerDefault() throws  Exception {
-        return register(USERNAME, EMAIL, PASSWORD, CONFIRMATION);
+    public ResultAssertor<String> signUp() throws  Exception {
+        return buildDefaultResultAssertor(signUp(USERNAME, EMAIL, PASSWORD, CONFIRMATION, HONEYPOT), USERNAME);
+
+
     }
 
-    public ResultActions registerAndActivate() throws Exception {
-        registerDefault();
+    public ResultAssertor<String> signUpAndActivate() throws Exception {
+        signUp();
         JCUser registered = userDao.getByUsername(USERNAME);
-        return mockMvc.perform(get("/user/activate/" + registered.getUuid()));
+        return ModelAndViewResultAssertor
+                .fromResultActions(mockMvc.perform(get("/user/activate/" + registered.getUuid())))
+                .withEntityIdentifier(USERNAME)
+                .withSuccessStatusMatcher(status().isMovedTemporarily())
+                .withSuccessVeiw("redirect:/");
     }
 
-    public ResultActions registerWithUsername(String username) throws Exception {
-        return register(username, EMAIL, PASSWORD, CONFIRMATION);
+    public ResultAssertor<String> signUpWithUsername(String username) throws Exception {
+        return buildDefaultResultAssertor(signUp(username, EMAIL, PASSWORD, CONFIRMATION, HONEYPOT), username);
     }
 
-    public ResultActions registerWithEmail(String email) throws Exception {
-        return register(USERNAME, email, PASSWORD, CONFIRMATION);
+    public ResultAssertor<String> signUpWithEmail(String email) throws Exception {
+        return buildDefaultResultAssertor(signUp(USERNAME, email, PASSWORD, CONFIRMATION, HONEYPOT), USERNAME);
     }
 
-    public ResultActions registerWithPasswordAndConfirmation(String password, String confirmation) throws Exception {
-        return register(USERNAME, EMAIL, password, confirmation);
+    public ResultAssertor<String> signUpWithPasswordAndConfirmation(String password, String confirmation) throws Exception {
+        return buildDefaultResultAssertor(signUp(USERNAME, EMAIL, password, confirmation, HONEYPOT), USERNAME);
     }
 
-    public ResultActions registerWithHoneypot(String honeypot) throws Exception {
-        return register(USERNAME, EMAIL, PASSWORD, CONFIRMATION, honeypot);
+    public ResultAssertor<String> signUpWithHoneypot(String honeypot) throws Exception {
+        return buildDefaultResultAssertor(signUp(USERNAME, EMAIL, PASSWORD, CONFIRMATION, honeypot), USERNAME)
+                .withFailStatusMatcher(status().isMovedTemporarily())
+                .withFailView("redirect:/user/new?reg_error=3");
     }
 
-    public ResultActions register(String username, String email, String password, String confirmation)
+
+    protected ResultAssertor<String> signUp(String username, String email, String password, String confirmation)
             throws Exception {
-        return register(username, email, password, confirmation, HONEYPOT);
+        return buildDefaultResultAssertor(signUp(username, email, password, confirmation, HONEYPOT), username);
     }
 
-    protected ResultActions register(String username, String email, String password, String confirmation,
-                                     String honeypot) throws Exception {
+    protected ResultActions signUp(String username, String email, String password, String confirmation,
+                                   String honeypot) throws Exception {
         return  mockMvc.perform(post("/user/new")
                 .param("userDto.username", username)
                 .param("userDto.email", email)
                 .param("userDto.password", password)
                 .param("passwordConfirm", confirmation)
                 .param("honeypotCaptcha", honeypot));
-    }
-
-    public void assertDefaultUserExist() {
-        assertUserExist(USERNAME);
-    }
-
-    public void assertDefaultUserNotExist() {
-        assertUserNotExist(USERNAME);
-    }
-
-    public void assertDefaultUserActivated() {
-        assertUserActivated(USERNAME);
     }
 
     public void assertUserActivated(String username) {
@@ -176,5 +177,14 @@ public class Users {
 
     public void setMockMvc(MockMvc mockMvc) {
         this.mockMvc = mockMvc;
+    }
+
+    private ModelAndViewResultAssertor<String> buildDefaultResultAssertor(ResultActions resultActions, String entityIdentifier) {
+        return ModelAndViewResultAssertor.fromResultActions(resultActions)
+                .withEntityIdentifier(entityIdentifier)
+                .withSuccessStatusMatcher(status().isOk())
+                .withSuccessVeiw(UserController.AFTER_REGISTRATION)
+                .withFailStatusMatcher(status().isOk())
+                .withFailView(UserController.REGISTRATION);
     }
 }
