@@ -20,7 +20,9 @@ import org.jtalks.jcommune.model.utils.Groups
 import org.jtalks.jcommune.model.utils.Users
 import org.jtalks.jcommune.model.utils.modelandview.ModelAndViewUsers
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.mock.web.MockHttpSession
+import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.context.transaction.TransactionConfiguration
 import org.springframework.test.context.web.WebAppConfiguration
@@ -61,6 +63,7 @@ class TopicControllerTest extends Specification {
     @Autowired
     private Branches branches;
     @Autowired
+    @Qualifier("modelAndViewUsers")
     private Users users;
     @Autowired
     private Groups groups;

@@ -50,13 +50,12 @@ import static org.apache.commons.lang.RandomStringUtils.randomAlphanumeric
 ])
 @TransactionConfiguration(transactionManager = "transactionManager", defaultRollback = true)
 @Transactional
-@ActiveProfiles
-class SignUpTest extends Specification {
+abstract class SignUpTest extends Specification {
 
     @Autowired
     private WebApplicationContext ctx;
-    @Autowired
-    private Users users;
+
+    protected Users users;
     @Autowired
     private Groups groups;
 
@@ -202,4 +201,7 @@ class SignUpTest extends Specification {
             assertor.shouldFailWithAttributeFieldErrors("newUser", "userDto.email")
     }
 
+    void setUsers(Users users) {
+        this.users = users
+    }
 }

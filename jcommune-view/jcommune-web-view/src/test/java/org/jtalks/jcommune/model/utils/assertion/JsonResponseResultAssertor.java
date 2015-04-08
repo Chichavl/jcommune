@@ -1,3 +1,17 @@
+/**
+ * Copyright (C) 2011  JTalks.org Team
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ */
 package org.jtalks.jcommune.model.utils.assertion;
 
 import org.codehaus.jackson.map.ObjectMapper;
@@ -10,7 +24,6 @@ import org.springframework.util.Assert;
 
 import java.io.StringWriter;
 
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 
 /**
@@ -81,7 +94,7 @@ public class JsonResponseResultAssertor<T> implements ResultAssertor<T> {
     public T shouldFail() throws Exception {
         Assert.notNull(failStatusMatcher, "To assert fail result failStatusMatcher should be initialized");
         Assert.notNull(failResponseBody, "To assert successful result fail response should be initialized");
-        actions.andExpect(failStatusMatcher).andExpect(content().string(failResponseBody)).andDo(print());
+        actions.andExpect(failStatusMatcher).andExpect(content().string(failResponseBody));
         return entityIdentifier;
     }
 

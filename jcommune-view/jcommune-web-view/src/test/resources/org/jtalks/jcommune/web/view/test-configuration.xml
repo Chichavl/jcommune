@@ -33,8 +33,6 @@
     <property name="sidFactory" ref="jtalksSidFactory"/>
   </bean>
 
-  <bean class="org.jtalks.jcommune.model.utils.modelandview.ModelAndViewUsers"/>
-
   <bean class="org.jtalks.jcommune.model.utils.Groups"/>
 
   <bean class="org.jtalks.jcommune.model.utils.Branches"/>
@@ -54,5 +52,8 @@
     <property name="baseDir" value="/org/jtalks/jcommune/migrations/test"/>
     <property name="table" value="jcommune_schema_version"/>
   </bean>
+
+  <bean id="modelAndViewUsers" class="org.jtalks.jcommune.model.utils.modelandview.ModelAndViewUsers"/>
+  <bean id="jsonResponseUsers" class="org.jtalks.jcommune.model.utils.jsonresponse.JsonResponseUsers"/>
 
 </beans>
