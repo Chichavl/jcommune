@@ -16,7 +16,9 @@ package org.jtalks.jcommune.web.component
 
 import org.jtalks.jcommune.model.utils.Groups
 import org.jtalks.jcommune.model.utils.Users
+import org.jtalks.jcommune.model.utils.modelandview.ModelAndViewUsers
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.context.transaction.TransactionConfiguration
 import org.springframework.test.context.web.WebAppConfiguration
@@ -48,6 +50,7 @@ import static org.apache.commons.lang.RandomStringUtils.randomAlphanumeric
 ])
 @TransactionConfiguration(transactionManager = "transactionManager", defaultRollback = true)
 @Transactional
+@ActiveProfiles
 class SignUpTest extends Specification {
 
     @Autowired
@@ -85,7 +88,7 @@ class SignUpTest extends Specification {
     def 'registration should fail if honeypot captcha are filled'() {
         when: 'Bot send registration request'
             def username = users.signUpWithHoneypot(honeypot).shouldFail()
-        then: 'User not ctreated in database'
+        then: 'User not created in database'
             users.assertUserNotExist(username)
         where:
             honeypot    |casename
@@ -106,7 +109,8 @@ class SignUpTest extends Specification {
 
     def 'registration with invalid username should fail'() {
         when: 'User send registration request with invalid username'
-            def name = users.signUpWithUsername(username).shouldFail()
+            def name = users.signUpWithUsername(username)
+                    .shouldFailWithAttributeFieldErrors("newUser", "userDto.username")
         then: 'User not created in database'
             users.assertUserNotExist(name)
         where:

@@ -33,7 +33,7 @@
     <property name="sidFactory" ref="jtalksSidFactory"/>
   </bean>
 
-  <bean class="org.jtalks.jcommune.model.utils.Users"/>
+  <bean class="org.jtalks.jcommune.model.utils.modelandview.ModelAndViewUsers"/>
 
   <bean class="org.jtalks.jcommune.model.utils.Groups"/>
 
