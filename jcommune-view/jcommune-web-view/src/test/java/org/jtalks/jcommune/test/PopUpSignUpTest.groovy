@@ -12,16 +12,33 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
-package org.jtalks.jcommune.web.component
+package org.jtalks.jcommune.test
 
-import org.jtalks.jcommune.model.utils.Users
+import com.google.common.collect.ImmutableMap
+import org.jtalks.jcommune.plugin.api.web.dto.json.JsonResponse
+import org.jtalks.jcommune.plugin.api.web.dto.json.JsonResponseStatus
+import org.jtalks.jcommune.test.utils.Users
+import org.jtalks.jcommune.test.utils.exceptions.WrongResponseException
+import org.jtalks.jcommune.web.controller.UserController
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 
 /**
  * @author Mikhail Stryzhonok
  */
-class JsonResponseSignUpTest extends SignUpTest {
+class PopUpSignUpTest extends SignUpTest {
+
+    @Override
+    void initNonDefaultFailParametersParameters() {
+        honeypotErrorResponse = new JsonResponse(JsonResponseStatus.FAIL,
+                new ImmutableMap.Builder<String, String>()
+                        .put(UserController.CUSTOM_ERROR, UserController.HONEYPOT_CAPTCHA_ERROR).build())
+    }
+
+    @Override
+    void assertNonDefaultFailParameters(def Object expected, WrongResponseException exception) {
+
+    }
 
     @Autowired
     @Qualifier("jsonResponseUsers")

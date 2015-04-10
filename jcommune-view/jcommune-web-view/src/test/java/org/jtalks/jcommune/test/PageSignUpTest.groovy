@@ -12,21 +12,40 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
-package org.jtalks.jcommune.web.component
+package org.jtalks.jcommune.test
 
-import org.jtalks.jcommune.model.utils.Users
+import com.sun.javaws.exceptions.InvalidArgumentException
+import org.jtalks.jcommune.test.utils.Users
+import org.jtalks.jcommune.test.utils.exceptions.WrongResponseException
+import org.jtalks.jcommune.web.controller.UserController
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
+
+import static org.junit.Assert.assertEquals;
 
 /**
  * @author Mikhail Stryzhonok
  */
-class ModelAndViewASignUpTest extends SignUpTest {
+class PageSignUpTest extends SignUpTest {
+
+    @Override
+    void initNonDefaultFailParametersParameters() {
+        honeypotErrorResponse = UserController.REG_SERVICE_HONEYPOT_FILLED_ERROR_URL;
+    }
 
     @Autowired
     @Qualifier("modelAndViewUsers")
     @Override
     void setUsers(Users users) {
         super.setUsers(users)
+    }
+
+    @Override
+    void assertNonDefaultFailParameters(Object expected, WrongResponseException exception) {
+        if (expected instanceof String && exception.actual instanceof String) {
+            assertEquals(expected, exception.actual)
+        } else {
+            throw new InvalidArgumentException("For page signup test non-default parameters should be String")
+        }
     }
 }

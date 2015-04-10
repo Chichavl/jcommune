@@ -12,17 +12,15 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
-package org.jtalks.jcommune.web.component
+package org.jtalks.jcommune.test
 
 import org.jtalks.common.model.permissions.BranchPermission
 import org.jtalks.jcommune.model.utils.Branches
 import org.jtalks.jcommune.model.utils.Groups
-import org.jtalks.jcommune.model.utils.Users
-import org.jtalks.jcommune.model.utils.modelandview.ModelAndViewUsers
+import org.jtalks.jcommune.test.utils.Users
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.beans.factory.annotation.Qualifier
 import org.springframework.mock.web.MockHttpSession
-import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.context.transaction.TransactionConfiguration
 import org.springframework.test.context.web.WebAppConfiguration

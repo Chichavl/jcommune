@@ -12,13 +12,15 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
-package org.jtalks.jcommune.web.component
+package org.jtalks.jcommune.test
 
+import org.apache.commons.lang.RandomStringUtils
 import org.jtalks.jcommune.model.utils.Groups
-import org.jtalks.jcommune.model.utils.Users
-import org.jtalks.jcommune.model.utils.modelandview.ModelAndViewUsers
+import org.jtalks.jcommune.test.utils.Users
+import org.jtalks.jcommune.test.utils.exceptions.ValidationException
+import org.jtalks.jcommune.test.utils.exceptions.WrongResponseException
+import org.jtalks.jcommune.test.utils.model.User
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.test.context.ActiveProfiles
 import org.springframework.test.context.ContextConfiguration
 import org.springframework.test.context.transaction.TransactionConfiguration
 import org.springframework.test.context.web.WebAppConfiguration
@@ -30,6 +32,7 @@ import spock.lang.Specification
 import javax.annotation.Resource
 import javax.servlet.Filter
 
+import static junit.framework.Assert.assertEquals
 import static org.apache.commons.lang.RandomStringUtils.randomAlphabetic
 import static org.apache.commons.lang.RandomStringUtils.randomAlphanumeric
 
@@ -62,7 +65,13 @@ abstract class SignUpTest extends Specification {
     @Resource(name = "testFilters")
     List<Filter> filters;
 
+    def honeypotErrorResponse;
+
+    abstract void initNonDefaultFailParametersParameters();
+    abstract void assertNonDefaultFailParameters(Object expected, WrongResponseException exception);
+
     def setup() {
+        initNonDefaultFailParametersParameters()
         users.mockMvc = MockMvcBuilders.webAppContextSetup(ctx)
                 .addFilters(filters.toArray(new Filter[filters.size()])).build()
         groups.create();
@@ -70,14 +79,14 @@ abstract class SignUpTest extends Specification {
 
     def 'test sign up success'() {
         when: 'User send registration request'
-            def userName = users.signUp().shouldPass()
+            def userName = users.singUp(new User())
         then: 'User created in database'
             users.assertUserExist(userName)
     }
 
     def 'test sign up and activation'() {
         when: 'User send registration request and goes to activation link'
-            def username = users.signUpAndActivate().shouldPass();
+            def username = users.signUpAndActivate(new User())
         then: 'User created in database'
             users.assertUserExist(username)
         and: 'User activated'
@@ -86,9 +95,12 @@ abstract class SignUpTest extends Specification {
 
     def 'registration should fail if honeypot captcha are filled'() {
         when: 'Bot send registration request'
-            def username = users.signUpWithHoneypot(honeypot).shouldFail()
-        then: 'User not created in database'
-            users.assertUserNotExist(username)
+            users.singUp(new User(honeypot: honeypot))
+        then: "Wrong response came"
+            def e = thrown(WrongResponseException)
+            assertNonDefaultFailParameters(honeypotErrorResponse, e)
+        and: 'User not created in database'
+            users.assertUserNotExist(e.entityIdentifier as String)
         where:
             honeypot    |casename
             "any text"  |"All fields filled"
@@ -96,11 +108,14 @@ abstract class SignUpTest extends Specification {
 
     def 'registration should fail if all fields are empty'() {
         when: 'User send registration request'
-            def name = users.signUp(username, email, password, confirmation)
-                    .shouldFailWithAttributeFieldErrors("newUser", "userDto.username", "userDto.email",
-                    "userDto.password");
-        then: 'User not created in database'
-            users.assertUserNotExist(name)
+            users.singUp(new User(username: username, email: email, password: password, confirmation: confirmation))
+        then: 'Validation error occurs'
+            def e = thrown(ValidationException)
+            e.getDefaultErrorMessages().containsAll(["Длина имени пользователя должна быть между 1 и 25 символами",
+                                                     "Не может быть пустым",
+                                                     "Длина пароля должна быть между 1 и 50 символами"])
+        and: 'User not created in database'
+            users.assertUserNotExist(e.entityIdentifier as String)
         where:
             username   |email  |password   |confirmation    |caseName
             ""         |""     |""         |""              |"All field are empty"
@@ -108,20 +123,22 @@ abstract class SignUpTest extends Specification {
 
     def 'registration with invalid username should fail'() {
         when: 'User send registration request with invalid username'
-            def name = users.signUpWithUsername(username)
-                    .shouldFailWithAttributeFieldErrors("newUser", "userDto.username")
-        then: 'User not created in database'
-            users.assertUserNotExist(name)
+            users.singUp(new User(username: username))
+        then: 'validation error occurs'
+            def e = thrown(ValidationException)
+            assertEquals([errorMessage], e.defaultErrorMessages)
+        and: 'User not created in database'
+            users.assertUserNotExist(e.entityIdentifier as String)
         where:
-            username               |caseName
-            "   "                  |"Username as spaces"
-            randomAlphabetic(26)   |"Username too long"
-            ""                     |"Username is empty"
+            username               |errorMessage                                                    |caseName
+            "   "                  |"Длина имени пользователя должна быть между 1 и 25 символами"   |"Username as spaces"
+            randomAlphabetic(26)   |"Длина имени пользователя должна быть между 1 и 25 символами"   |"Username too long"
+            ""                     |"Длина имени пользователя должна быть между 1 и 25 символами"   |"Username is empty"
     }
 
     def 'registration user with valid username should pass'() {
         when: 'User send registration request with valid username'
-            def name = users.signUpWithUsername(username).shouldPass()
+            def name = users.singUp(new User(username: username))
         then: 'User created in database'
             users.assertUserExist(name)
         where:
@@ -136,18 +153,21 @@ abstract class SignUpTest extends Specification {
 
     def 'registration with invalid email should fail'() {
         when: 'User send registration request with invalid email'
-            def username = users.signUpWithEmail(email).shouldFailWithAttributeFieldErrors("newUser", "userDto.email");
-        then: 'User not created in database'
-            users.assertUserNotExist(username)
+            users.singUp(new User(email: email))
+        then: 'Validation exception occurs'
+            def e = thrown(ValidationException)
+            assertEquals([errorMessage], e.defaultErrorMessages)
+        and: 'User not created in database'
+            users.assertUserNotExist(e.entityIdentifier as String)
         where:
-            email                                   |caseName
-            randomAlphanumeric(8) + "@" + "jtalks"  |"Invalid email format"
-            ""                                      |"Email is empty"
+            email                                   |errorMessage                           |caseName
+            randomAlphanumeric(8) + "@" + "jtalks"  |"Допустимый формат email: mail@mail.ru"|"Invalid email format"
+            ""                                      |"Не может быть пустым"                 |"Email is empty"
     }
 
     def 'registration with valid password and confirmation should pass'() {
         when: 'User send registration request with valid password and confirmation'
-            def username = users.signUpWithPasswordAndConfirmation(password, password).shouldPass()
+            def username = users.singUp(new User(password: password, confirmation: password))
         then: 'User created in database'
             users.assertUserExist(username)
         where:
@@ -158,47 +178,54 @@ abstract class SignUpTest extends Specification {
 
     def 'registration with invalid password should fail'() {
         when: 'User send registration request with invalid password'
-            def username = users.signUpWithPasswordAndConfirmation(password, password)
-                    .shouldFailWithAttributeFieldErrors("newUser", "userDto.password")
-        then: 'User not created in database'
-            users.assertUserNotExist(username)
+            users.singUp(new User(password: password, confirmation: password))
+        then: 'Validation exception occurs'
+            def e = thrown(ValidationException)
+        and: 'User not created in database'
+            users.assertUserNotExist(e.entityIdentifier as String)
         where:
-            password                |caseName
-            ""                      |"Password is empty"
-            randomAlphanumeric(51)  |"Too long password"
+            password                |errorMessage                                       |caseName
+            ""                      |"Длина пароля должна быть между 1 и 50 символами"  |"Password is empty"
+            randomAlphanumeric(51)  |"Длина пароля должна быть между 1 и 50 символами"  |"Too long password"
 
     }
 
     def 'registration with different password and confirmation should fail'() {
         when: 'User send registration request with different password and confirmation'
-            def username = users.signUpWithPasswordAndConfirmation(password, confirmation)
-                    .shouldFailWithAttributeFieldErrors("newUser", "passwordConfirm");
-        then: 'User not created in database'
-            users.assertUserNotExist(username)
+            users.singUp(new User(password: password, confirmation: confirmation))
+        then: 'Validation exception occurs'
+            def e = thrown(ValidationException)
+            assertEquals([errorMessage], e.defaultErrorMessages)
+        and: 'User not created in database'
+            users.assertUserNotExist(e.entityIdentifier as String)
         where:
-            password               |confirmation    | caseName
-            randomAlphanumeric(10) |""              | "Confirmation is empty"
-            "password"             |"PASSWORD"      | "Confirmation in wrong letter case"
-            "password"             |" password"     | "Space at the begin of confirmation"
-            "password"             |"password "     | "Space at the end of confirmation"
+            password               |confirmation    |errorMessage                                   | caseName
+            randomAlphanumeric(10) |""              |"Пароль и подтверждение пароля не совпадают"   | "Confirmation is empty"
+            "password"             |"PASSWORD"      |"Пароль и подтверждение пароля не совпадают"   | "Confirmation in wrong letter case"
+            "password"             |" password"     |"Пароль и подтверждение пароля не совпадают"   | "Space at the begin of confirmation"
+            "password"             |"password "     |"Пароль и подтверждение пароля не совпадают"   | "Space at the end of confirmation"
     }
 
     def 'registration with not unique usename should fail'() {
-        given: 'User with default username registered'
-            users.signUp();
-        when: 'Other user tries to signUp with same username and different email'
-            def assertor = users.signUpWithEmail("mail@mail.ru")
+        given: 'User registered'
+            def username = "amazzzing";
+            users.singUp(new User(username: username))
+        when: 'Other user tries to signUp with same username'
+            users.singUp(new User(username: username))
         then: 'Username field marked with error'
-            assertor.shouldFailWithAttributeFieldErrors("newUser", "userDto.username")
+            def e = thrown(ValidationException)
+            assertEquals(["Пользователь с таким именем уже существует"], e.defaultErrorMessages)
     }
 
     def 'registration with not unique email should fail'() {
-        given: 'User with default email registered'
-            users.signUp();
+        given: 'User registered'
+            def email = "mail@example.com"
+            users.singUp(new User(email: email))
         when: 'Other user tries to signUp with same email and different username'
-            def assertor = users.signUpWithUsername("super user")
+            users.singUp(new User(email: email))
         then: 'Email field marked with error'
-            assertor.shouldFailWithAttributeFieldErrors("newUser", "userDto.email")
+            def e = thrown(ValidationException)
+            assertEquals(["Пользователь с таким email уже существует"], e.defaultErrorMessages)
     }
 
     void setUsers(Users users) {

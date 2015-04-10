@@ -12,18 +12,20 @@
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
  */
-package org.jtalks.jcommune.model.utils;
+package org.jtalks.jcommune.test.utils;
 
 import org.jtalks.common.model.entity.Group;
 import org.jtalks.common.service.security.SecurityContextHolderFacade;
 import org.jtalks.jcommune.model.dao.GroupDao;
 import org.jtalks.jcommune.model.dao.UserDao;
 import org.jtalks.jcommune.model.entity.JCUser;
-import org.jtalks.jcommune.model.utils.assertion.ModelAndViewResultAssertor;
-import org.jtalks.jcommune.model.utils.assertion.ResultAssertor;
+import org.jtalks.jcommune.model.utils.PermissionGranter;
 import org.jtalks.jcommune.service.nontransactional.EncryptionService;
 import org.jtalks.jcommune.service.security.AdministrationGroup;
 import org.jtalks.jcommune.service.security.PermissionManager;
+import org.jtalks.jcommune.test.utils.exceptions.ValidationException;
+import org.jtalks.jcommune.test.utils.exceptions.WrongResponseException;
+import org.jtalks.jcommune.test.utils.model.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -32,15 +34,18 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.validation.BindingResult;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
+import java.io.Serializable;
+
 import static junit.framework.Assert.fail;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * @author Mikhail Stryzhonok
@@ -49,9 +54,7 @@ public abstract class Users {
     // Default values
     public static final String USERNAME = "user";
     public static final String PASSWORD = "pwd";
-    public static final String EMAIL = "sample@example.com";
-    public static final String CONFIRMATION = Users.PASSWORD;
-    public static final String HONEYPOT = "";
+
     @Autowired
     private UserDao userDao;
     @Autowired
@@ -94,33 +97,21 @@ public abstract class Users {
         sessionStrategy.onAuthentication(auth, request, response);
     }
 
-    public ResultAssertor<String> signUpAndActivate() throws Exception {
-        signUp();
-        JCUser registered = getUserDao().getByUsername(USERNAME);
-        return ModelAndViewResultAssertor
-                .fromResultActions(getMockMvc().perform(get("/user/activate/" + registered.getUuid())))
-                .withEntityIdentifier(USERNAME)
-                .withSuccessStatusMatcher(status().isMovedTemporarily())
-                .withSuccessVeiw("redirect:/");
+    public String signUpAndActivate(User user) throws Exception {
+        singUp(user);
+
+        JCUser registered = getUserDao().getByUsername(user.getUsername());
+        getMockMvc().perform(get("/user/activate/" + registered.getUuid()));
+
+        return user.getUsername();
     }
 
     public abstract HttpSession performLogin() throws Exception;
 
-    public abstract ResultAssertor<String> signUp() throws  Exception;
+    public abstract String singUp(User user)  throws Exception;
 
-    public abstract ResultAssertor<String> signUpWithUsername(String username) throws Exception;
-
-    public abstract ResultAssertor<String> signUpWithEmail(String email) throws Exception;
-
-    public abstract ResultAssertor<String> signUpWithPasswordAndConfirmation(String password, String confirmation) throws Exception;
-
-    public abstract ResultAssertor<String> signUpWithHoneypot(String honeypot) throws Exception;
-
-    protected abstract ResultAssertor<String> signUp(String username, String email, String password, String confirmation)
-            throws Exception;
-
-    protected abstract ResultActions signUp(String username, String email, String password, String confirmation,
-                                            String honeypot) throws Exception;
+    public abstract void assertMvcResult(MvcResult result, Serializable entityIdentifier)
+            throws WrongResponseException, ValidationException;
 
     public void assertUserActivated(String username) {
         JCUser user = userDao.getByUsername(username);
@@ -142,6 +133,7 @@ public abstract class Users {
             fail("User with name [" + username + "] exist in database");
         }
     }
+
 
     public void setMockMvc(MockMvc mockMvc) {
         this.mockMvc = mockMvc;
